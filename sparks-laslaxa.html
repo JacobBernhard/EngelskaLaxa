@@ -1,0 +1,826 @@
+<title>Sparks Läsläxa</title>
+<link id="app-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Grandstander:wght@600;800&display=swap">
+<style id="app-style">
+/* Layout: one reading column (max 48rem), sticky tab bar, a dock fixed to the bottom for the tapped word / "your turn" banner */
+:root{
+  --paper:#F2F5FB; --card:#FFFFFF; --ink:#1A2142; --muted:#58628A; --line:#D9E0EE;
+  --sea:#2F55E4; --sea-ink:#FFFFFF; --spark:#FFC531; --spark-ink:#1A2142;
+  --glosa:#FFEDB0; --glosa-line:#E0A800; --sent:#E3EAFF;
+  --right:#147A51; --right-bg:#DDF5E9; --wrong:#C63D29; --wrong-bg:#FDE4DF;
+  --scrim:rgba(16,22,52,.55); --who-a:#C63D29; --who-b:#3B7A1C;
+  --f-display:'Grandstander','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0F1430; --card:#19203F; --ink:#EDF0FB; --muted:#A2ABCE; --line:#2C3563;
+  --sea:#8099FF; --sea-ink:#0F1430; --spark:#FFCF4D; --spark-ink:#1A1A10;
+  --glosa:#4A3D16; --glosa-line:#FFCF4D; --sent:#26305F;
+  --right:#4CD39A; --right-bg:#163A2D; --wrong:#FF8B78; --wrong-bg:#45211C;
+  --scrim:rgba(0,0,0,.6); --who-a:#FF8B78; --who-b:#8FD46A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0F1430; --card:#19203F; --ink:#EDF0FB; --muted:#A2ABCE; --line:#2C3563;
+  --sea:#8099FF; --sea-ink:#0F1430; --spark:#FFCF4D; --spark-ink:#1A1A10;
+  --glosa:#4A3D16; --glosa-line:#FFCF4D; --sent:#26305F;
+  --right:#4CD39A; --right-bg:#163A2D; --wrong:#FF8B78; --wrong-bg:#45211C;
+  --scrim:rgba(0,0,0,.6); --who-a:#FF8B78; --who-b:#8FD46A; color-scheme:dark}
+
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5}
+#app{max-width:48rem;margin:0 auto;padding-inline:16px;padding-block:20px 160px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--spark);outline-offset:2px}
+
+/* Header */
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.eyebrow{display:block;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.top h1{font-size:clamp(1.6rem,1.1rem + 2vw,2.3rem);font-weight:800;margin-top:4px}
+.meter{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:10px 14px;min-width:0;flex:0 1 16rem}
+.meter svg{width:34px;height:34px;grid-row:span 2}
+.meter .count{font-family:var(--f-display);font-size:1.35rem;font-weight:800;font-variant-numeric:tabular-nums}
+.meter .count small{font-family:var(--f-body);font-size:.85rem;font-weight:400;color:var(--muted)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--spark);border-radius:inherit;transition:width .5s}
+.streak{grid-column:1 / -1;font-size:.85rem;color:var(--muted)}
+
+/* Tabs + settings */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;flex-wrap:wrap;gap:8px;padding-block:14px 10px;margin-top:10px;background:var(--paper)}
+.tab{border:2px solid var(--line);background:var(--card);border-radius:99px;padding:.55em 1.1em;font-weight:700;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.settings{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:.9rem;color:var(--muted);margin-bottom:14px}
+.seg{display:inline-flex;border:2px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:none;padding:.35em .85em;cursor:pointer;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--sea);color:var(--sea-ink);font-weight:700}
+.settings select{font:inherit;font-size:.85rem;max-width:14rem;padding:.3em .5em;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+.note{background:var(--card);border:2px dashed var(--line);border-radius:var(--r);padding:12px 16px;margin:0 0 14px;font-size:.95rem}
+.note button{margin-top:8px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.45em;border:2px solid var(--line);background:var(--card);border-radius:99px;padding:.55em 1.05em;font-weight:700;cursor:pointer;line-height:1.2}
+.btn svg{width:1.1em;height:1.1em;flex:none}
+.btn.primary{background:var(--sea);border-color:var(--sea);color:var(--sea-ink)}
+.btn.spark{background:var(--spark);border-color:var(--spark);color:var(--spark-ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.small{padding:.35em .8em;font-size:.88rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.hint{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+.linkish{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:.9rem}
+
+/* Story */
+.story{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:clamp(18px,4vw,32px);font-size:clamp(1.2rem,1rem + 1vw,1.45rem);line-height:2.05;min-width:0}
+.story h2{font-size:1.5em;margin-bottom:.4em;line-height:1.4}
+.story p{margin:0 0 1em}
+.story p:last-child{margin-bottom:0}
+.line{display:grid;grid-template-columns:6.5em minmax(0,1fr);gap:.7em;margin:0 0 .25em}
+.who{font-size:.62em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding-top:.5em;line-height:2.2}
+.who-0 .who{color:var(--who-a)} .who-1 .who{color:var(--who-b)} .who-2 .who{color:var(--sea)} .who-3 .who{color:var(--muted)}
+.line + p{margin-top:1em}
+@media (max-width:30rem){.line{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:.5em}.who{text-align:left;padding-top:0;line-height:1.4}}
+.sent{border-radius:.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .2s}
+.sent.cur{background:var(--sent)}
+.w{background:none;border:0;padding:0 .08em;margin:0 -.08em;border-radius:.3em;cursor:pointer;line-height:inherit}
+.w:hover{background:var(--sent)}
+.w.g{background:var(--glosa);box-shadow:inset 0 -2px 0 var(--glosa-line)}
+.hide-g .w.g{background:none;box-shadow:none}
+.w.now,.w.sel,.hide-g .w.now,.hide-g .w.sel{background:var(--sea);color:var(--sea-ink);box-shadow:none}
+
+/* Dock (word bar + your turn) */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:2px solid var(--line);box-shadow:0 -8px 24px rgba(10,20,60,.12);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.dock-in{max-width:48rem;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.dock .big{font-family:var(--f-display);font-size:1.8rem;font-weight:800;line-height:1.1}
+.dock .meta{flex:1 1 10rem;min-width:0;color:var(--muted);font-size:.95rem}
+.dock .meta b{color:var(--ink)}
+.dock .acts{display:flex;flex-wrap:wrap;gap:6px}
+.dock .x{margin-left:auto}
+.turn{background:var(--spark);color:var(--spark-ink);border-top-color:var(--spark)}
+.turn .big{font-size:1.5rem}
+.turn .btn{border-color:var(--spark-ink);background:transparent;color:var(--spark-ink)}
+.turn-bar{flex-basis:100%;height:8px;border-radius:99px;background:rgba(0,0,0,.15);overflow:hidden}
+.turn-bar i{display:block;height:100%;width:100%;background:var(--spark-ink);border-radius:inherit}
+
+/* Word cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:10px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;transition:border-color .2s,transform .2s}
+.card.cur{border-color:var(--sea);transform:translateY(-2px)}
+.card-main{flex:1;border:0;background:none;text-align:left;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.card .en{font-family:var(--f-display);font-size:1.45rem;font-weight:800;line-height:1.15;overflow-wrap:anywhere}
+.card .sv{color:var(--muted);transition:filter .25s}
+.quiz .card:not(.revealed) .sv{filter:blur(7px)}
+.card-actions{display:flex;gap:6px;padding:0 10px 10px}
+
+/* Games */
+.menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:12px}
+.game-card{text-align:left;background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:18px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.game-card:hover{border-color:var(--sea)}
+.game-card h3{font-size:1.35rem}
+.game-card p{margin:0;color:var(--muted);font-size:.95rem}
+.game-card .tag{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sea)}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:clamp(16px,4vw,28px)}
+.g-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;color:var(--muted);font-size:.9rem;font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.dots i.done{background:var(--spark)}
+.dots i.cur{background:var(--sea)}
+.q-label{font-weight:700;margin:0 0 10px}
+.q-word{font-family:var(--f-display);font-size:clamp(2rem,1.4rem + 3vw,3rem);font-weight:800;line-height:1.1;margin:4px 0;overflow-wrap:anywhere}
+.q-sub{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.q-play{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.opt{border:2px solid var(--line);background:var(--paper);border-radius:var(--r);padding:16px 10px;font-family:var(--f-display);font-size:clamp(1.1rem,1rem + .8vw,1.45rem);font-weight:800;cursor:pointer;overflow-wrap:anywhere}
+.opt:hover:not(:disabled){border-color:var(--sea)}
+.opt.right{background:var(--right-bg);border-color:var(--right);color:var(--right)}
+.opt.wrong{background:var(--wrong-bg);border-color:var(--wrong);color:var(--wrong);opacity:.85}
+.opt:disabled{cursor:default}
+.fb{min-height:1.6em;margin:14px 0 0;font-weight:700}
+.fb.ok{color:var(--right)} .fb.no{color:var(--wrong)}
+.g-next{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.mic{width:5.5rem;height:5.5rem;border-radius:50%;border:0;background:var(--sea);color:var(--sea-ink);cursor:pointer;display:grid;place-items:center;margin:6px 0}
+.mic svg{width:2.4rem;height:2.4rem}
+.mic.on{background:var(--wrong);animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.spell{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+.spell input{flex:1 1 12rem;min-width:0;font-family:var(--f-display);font-size:clamp(1.3rem,1.1rem + 1vw,1.7rem);font-weight:800;padding:.4em .6em;border-radius:var(--r);border:2px solid var(--line);background:var(--paper);color:var(--ink)}
+.spell input:focus{border-color:var(--sea);outline:none}
+.spell input.right{border-color:var(--right);background:var(--right-bg);color:var(--right)}
+.hint-letters{font-family:var(--f-display);font-size:1.3rem;letter-spacing:.15em;margin:10px 0 0;color:var(--muted)}
+.diff{font-family:var(--f-display);font-size:1.4rem;letter-spacing:.04em}
+.diff mark{background:var(--wrong-bg);color:var(--wrong);border-bottom:3px solid var(--wrong);border-radius:3px}
+.summary{text-align:center}
+.summary .q-word{margin-bottom:8px}
+
+/* Footer, toast, modal, confetti */
+.foot{margin-top:28px;display:flex;justify-content:center}
+.toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-160%);z-index:40;background:var(--spark);color:var(--spark-ink);font-weight:700;border-radius:99px;padding:.55em 1.2em;box-shadow:0 6px 20px rgba(10,20,60,.2);transition:transform .3s;max-width:calc(100% - 32px);text-align:center}
+.toast.show{transform:translate(-50%,0)}
+.modal{position:fixed;inset:0;z-index:50;background:var(--scrim);display:grid;place-items:center;padding:16px}
+.modal-in{background:var(--card);border-radius:var(--r);width:100%;max-width:42rem;max-height:calc(100% - 32px);overflow:auto;padding:22px;display:flex;flex-direction:column;gap:12px}
+.modal label{font-weight:700;display:flex;flex-direction:column;gap:6px}
+.modal label span{font-weight:400;color:var(--muted);font-size:.88rem}
+.modal input,.modal textarea{font:inherit;font-size:1rem;padding:.6em .7em;border-radius:10px;border:2px solid var(--line);background:var(--paper);color:var(--ink);width:100%;box-sizing:border-box}
+.modal textarea{resize:vertical}
+.modal .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.modal .status{color:var(--muted);font-size:.9rem;margin:0}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+@media (max-width:30rem){.options{grid-template-columns:1fr}.dock .big{font-size:1.5rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div>
+      <span class="eyebrow">Sparks Year 4 · Veckans läsläxa</span>
+      <h1 id="week-title">Veckans text</h1>
+    </div>
+    <div class="meter" aria-live="polite">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--spark)" stroke="var(--ink)" stroke-width="1.3" stroke-linejoin="round" d="M12 2.6l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>
+      <div class="count"><span id="star-count">0</span> <small>av <span id="star-goal">40</span> stjärnor</small></div>
+      <div class="bar"><i id="star-bar"></i></div>
+      <div class="streak" id="streak"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabbtn-read" data-tab="read" aria-selected="true">Läs texten</button>
+    <button class="tab" role="tab" id="tabbtn-words" data-tab="words" aria-selected="false">Glosor</button>
+    <button class="tab" role="tab" id="tabbtn-play" data-tab="play" aria-selected="false">Öva &amp; spela</button>
+  </nav>
+
+  <div class="settings">
+    <span>Röst</span>
+    <span class="seg"><button type="button" id="acc-gb" data-accent="en-GB" aria-pressed="true">Brittisk</button><button type="button" id="acc-us" data-accent="en-US" aria-pressed="false">Amerikansk</button></span>
+    <select id="voice-select" aria-label="Välj röst"></select>
+  </div>
+
+  <p class="note" id="no-voice" hidden>Den här webbläsaren har ingen engelsk röst installerad, så uppläsningen fungerar inte. Prova Edge, Chrome eller Safari, eller lägg till en engelsk röst i datorns/plattans språkinställningar.</p>
+  <div class="note" id="example-note" hidden>Det här är en <b>exempeltext</b>. Klistra in veckans kapitel och glosor från Sparks så blir sidan din egen läxa.<br><button type="button" class="btn small" id="btn-edit-2">Byt veckans text</button></div>
+
+  <section id="tab-read" role="tabpanel">
+    <div class="toolbar">
+      <button type="button" class="btn primary" id="btn-readall"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></svg>Läs upp hela texten</button>
+      <button type="button" class="btn spark" id="btn-echo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h16v10H9l-5 4z"/></svg>Härma mening för mening</button>
+      <button type="button" class="btn" id="btn-stop" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect fill="currentColor" x="6" y="6" width="12" height="12" rx="2"/></svg>Stopp</button>
+      <button type="button" class="btn small" id="btn-toggle-g" aria-pressed="true">Markera glosor</button>
+    </div>
+    <p class="hint">Tryck på ett ord för att höra hur det uttalas. Gula ord är veckans glosor.</p>
+    <article class="story" id="story" lang="en"></article>
+  </section>
+
+  <section id="tab-words" role="tabpanel" hidden>
+    <div class="toolbar">
+      <button type="button" class="btn primary" id="btn-allwords"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></svg>Lyssna på alla glosor</button>
+      <button type="button" class="btn" id="btn-quiz" aria-pressed="false">Testa dig själv: dölj svenskan</button>
+    </div>
+    <p class="hint">Tryck på en glosa för att höra den. Säg den högt efter rösten!</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="tab-play" role="tabpanel" hidden>
+    <div class="menu" id="game-menu">
+      <button type="button" class="game-card" data-game="listen"><span class="tag">Lyssna</span><h3>Hör och välj</h3><p>Lyssna på ordet och välj hur det stavas.</p></button>
+      <button type="button" class="game-card" data-game="translate"><span class="tag">Översätt</span><h3>Vad heter det på engelska?</h3><p>Du ser det svenska ordet. Välj det engelska och hör hur det låter.</p></button>
+      <button type="button" class="game-card" data-game="say"><span class="tag">Uttala</span><h3>Säg det!</h3><p>Lyssna, härma och säg ordet själv.</p></button>
+      <button type="button" class="game-card" data-game="spell-en"><span class="tag">Stava</span><h3>Stava på engelska</h3><p>Lyssna på ordet och skriv det på engelska.</p></button>
+      <button type="button" class="game-card" data-game="spell-sv"><span class="tag">Stava</span><h3>Skriv på svenska</h3><p>Du ser det engelska ordet. Skriv vad det betyder.</p></button>
+    </div>
+    <div class="panel" id="game" hidden></div>
+  </section>
+
+  <div class="foot"><button type="button" class="linkish" id="btn-edit">Byt veckans text och glosor (för vuxna)</button></div>
+
+  <div class="dock" id="wordbar" hidden>
+    <div class="dock-in">
+      <div class="big" id="wb-word" lang="en"></div>
+      <div class="meta" id="wb-meta"></div>
+      <div class="acts">
+        <button type="button" class="btn small" id="wb-again">Igen</button>
+        <button type="button" class="btn small" id="wb-sent">Hela meningen</button>
+        <button type="button" class="btn small" id="wb-mean" hidden>Vad betyder det?</button>
+        <button type="button" class="btn small x" id="wb-close" aria-label="Stäng">Stäng</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock turn" id="turn" hidden>
+    <div class="dock-in">
+      <div class="big">Din tur!</div>
+      <div class="meta" style="color:inherit">Säg meningen högt, precis som rösten.</div>
+      <div class="acts">
+        <button type="button" class="btn small" id="turn-again">Lyssna igen</button>
+        <button type="button" class="btn small" id="turn-next">Nästa</button>
+        <button type="button" class="btn small" id="turn-stop">Sluta</button>
+      </div>
+      <div class="turn-bar"><i id="turn-bar"></i></div>
+    </div>
+  </div>
+
+  <div class="modal" id="editor" hidden role="dialog" aria-modal="true" aria-labelledby="ed-h">
+    <form class="modal-in" id="ed-form">
+      <h2 id="ed-h">Veckans text och glosor</h2>
+      <label for="ed-title">Kapitlets namn<input id="ed-title" type="text" autocomplete="off"></label>
+      <label for="ed-text">Texten <span>Klistra in eller skriv av kapitlet. Tom rad mellan stycken.</span><textarea id="ed-text" rows="10"></textarea></label>
+      <label for="ed-words">Glosor <span>En per rad: engelska = svenska. Till exempel: umbrella = paraply</span><textarea id="ed-words" rows="8"></textarea></label>
+      <p class="status" id="ed-status"></p>
+      <div class="row">
+        <button type="button" class="btn" id="ed-cancel">Avbryt</button>
+        <button type="submit" class="btn primary" id="ed-save">Spara</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+</div>
+
+<script type="application/json" id="week-data">{"title": "Perfect Breakfast", "example": false, "savedAt": 1791900000000, "text": "Lynne and Benjamin are having breakfast. But they are not at home. They are in a forest.\nLYNNE: This is beautiful! A perfect place for breakfast.\nBENJAMIN: Yes, I love the forest. Nature is fantastic.\nLYNNE: Okay, I’m hungry. Have you got a plate?\nBENJAMIN: No, plates are not important.\nLYNNE: Okay, but I need a knife and fork.\nBENJAMIN: We can eat with our fingers.\nLYNNE: Well, okay.\nBENJAMIN: So, have you got the bread?\nLYNNE: Yes, here it is.\nBENJAMIN: But it’s a loaf of bread – and we haven’t got a knife.\nLYNNE: It’s okay, I can use my hands. Have you got the cheese?\nBENJAMIN: Well, no.\nLYNNE: Some ham? Some butter?\nBENJAMIN: Sorry, no. But I’ve got eggs.\nLYNNE: Great. I love an egg for breakfast. A boiled egg?\nBENJAMIN: Sorry Lynne, my eggs are fresh.\nLYNNE: Hmm, we can’t eat fresh eggs. Have you got an apple? I love an apple for breakfast.\nBENJAMIN: Sorry, no apples. But I’ve got beans.\nLYNNE: Baked beans?\nBENJAMIN: Yes.\nLYNNE: In a tin?\nBENJAMIN: Yes.\nLYNNE: And have you got a tin opener?\nBENJAMIN: Well … no.\nLYNNE: So, no baked beans for breakfast.\nBENJAMIN: I’ve got two cups here. Have you got the coffee?\nLYNNE: Yes, here it is.\nBENJAMIN: Lynne, that’s a jar of instant coffee. Have you got a flask of hot water?\nLYNNE: Sorry, no.\nBENJAMIN: So, no coffee for breakfast.\nLYNNE: But we have bread!\nBENJAMIN: Great. I love bread.\nLYNNE: And we have nature!\nBENJAMIN: Bread and nature! A perfect breakfast!", "words": [{"en": "have breakfast", "sv": "äta frukost"}, {"en": "forest", "sv": "skog"}, {"en": "beautiful", "sv": "vacker"}, {"en": "plate", "sv": "tallrik"}, {"en": "important", "sv": "viktig"}, {"en": "knife", "sv": "kniv"}, {"en": "fork", "sv": "gaffel"}, {"en": "loaf of bread", "sv": "brödlimpa"}, {"en": "cheese", "sv": "ost"}, {"en": "ham", "sv": "skinka"}, {"en": "butter", "sv": "smör"}, {"en": "egg", "sv": "ägg"}, {"en": "boil", "sv": "koka"}, {"en": "fresh", "sv": "färsk"}, {"en": "baked beans", "sv": "vita bönor i tomatsås"}, {"en": "tin", "sv": "konservburk"}, {"en": "tin opener", "sv": "konservöppnare"}, {"en": "cup", "sv": "mugg"}, {"en": "instant coffee", "sv": "snabbkaffe"}, {"en": "flask", "sv": "termos"}]}</script>
+
+<script id="app-script">
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)}, $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+var DEFAULT_RESET=':root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}';
+var headStyle=document.head&&document.head.querySelector('style');
+// Captured before anything renders, so a saved week can republish the page unchanged.
+var SHELL={reset:(headStyle&&headStyle.textContent)||DEFAULT_RESET,fonts:$('#app-fonts').outerHTML,style:$('#app-style').outerHTML,app:$('#app').outerHTML,script:$('#app-script').outerHTML};
+var GOAL=40;
+var reduced=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+/* ---------- Week data ---------- */
+var EMBED;try{EMBED=JSON.parse($('#week-data').textContent)}catch(e){EMBED={title:'',text:'',words:[]}}
+var week=(function(){var l=load('sparks-week',null);return(l&&l.savedAt>(EMBED.savedAt||0))?l:EMBED})();
+function weekKey(){var h=7,s=week.title+'|'+week.text;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return 'w'+(h>>>0).toString(36)}
+
+var wordRe=function(){return /[A-Za-z]+(?:['’][A-Za-z]+)*/g};
+function norm(w){return w.toLowerCase().replace(/’/g,"'")}
+function formsMatch(tok,g){
+  if(tok===g)return true;
+  var suf=['s','es','ed','d','ing'];for(var i=0;i<suf.length;i++)if(tok===g+suf[i])return true;
+  if(g.slice(-1)==='e'&&tok===g.slice(0,-1)+'ing')return true;
+  if(g.slice(-1)==='y'&&(tok===g.slice(0,-1)+'ies'||tok===g.slice(0,-1)+'ied'))return true;
+  return false;
+}
+var GL=[];
+function prepGlosor(){
+  GL=(week.words||[]).filter(function(w){return w.en&&w.en.trim()}).map(function(w,i){
+    var toks=(w.en.match(wordRe())||[]).map(norm);
+    if(toks.length>1&&['to','a','an','the'].indexOf(toks[0])>=0)toks=toks.slice(1);
+    return {en:w.en.trim(),sv:(w.sv||'').trim(),toks:toks,i:i};
+  });
+}
+function glosa(i){for(var k=0;k<GL.length;k++)if(GL[k].i==i)return GL[k];return null}
+
+/* ---------- Progress ---------- */
+var P=load('sparks-progress',{weeks:{},days:[]});
+function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function W(){var k=weekKey();if(!P.weeks[k])P.weeks[k]={stars:0,seen:[]};return P.weeks[k]}
+function streak(){var set={};P.days.forEach(function(d){set[d]=1});var d=new Date(),n=0;if(!set[fmt(d)])d.setDate(d.getDate()-1);while(set[fmt(d)]){n++;d.setDate(d.getDate()-1)}return n}
+function updateMeter(){
+  var s=W().stars;$('#star-count').textContent=s;$('#star-goal').textContent=GOAL;
+  $('#star-bar').style.width=Math.min(100,s/GOAL*100)+'%';
+  var n=streak();$('#streak').textContent=n>0?(n+(n===1?' dag':' dagar')+' i rad. Bra kämpat!'):'Öva idag för att starta en svit.';
+}
+function addStars(n,msg){
+  var w=W(),before=w.stars;w.stars+=n;
+  var t=fmt(new Date());if(P.days.indexOf(t)<0){P.days.push(t);if(P.days.length>60)P.days.shift()}
+  store('sparks-progress',P);updateMeter();
+  if(before<GOAL&&w.stars>=GOAL){toast('Veckans mål klart! '+GOAL+' stjärnor!');celebrate(true);return}
+  if(Math.floor(before/10)<Math.floor(w.stars/10)){toast(w.stars+' stjärnor! '+(msg||''));celebrate(false);return}
+  toast('+'+n+' ★ '+(msg||''));
+}
+
+/* ---------- Feedback: toast, sound, confetti ---------- */
+var toastT;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},1800)}
+var AC=null;
+function beep(ok){
+  try{
+    AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+    var t=AC.currentTime,notes=ok?[660,990]:[330,247];
+    notes.forEach(function(f,i){var o=AC.createOscillator(),g=AC.createGain(),s=t+i*.1;o.type=ok?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.16,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+.28);o.connect(g);g.connect(AC.destination);o.start(s);o.stop(s+.3)});
+  }catch(e){}
+}
+function celebrate(big){
+  if(reduced)return;
+  var c=$('#confetti'),x=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+  c.width=innerWidth*dpr;c.height=innerHeight*dpr;x.scale(dpr,dpr);
+  var cs=getComputedStyle(document.documentElement),cols=['--spark','--sea','--right','--wrong'].map(function(v){return cs.getPropertyValue(v).trim()||'#fc3'});
+  var ps=[];for(var i=0;i<(big?180:90);i++)ps.push({x:innerWidth/2+(Math.random()-.5)*innerWidth*.3,y:innerHeight*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*13-4,r:Math.random()*6+4,c:cols[i%cols.length],a:Math.random()*6,va:(Math.random()-.5)*.4});
+  var start=performance.now();
+  (function f(now){
+    x.clearRect(0,0,innerWidth,innerHeight);
+    ps.forEach(function(p){p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.vx*=.99;p.a+=p.va;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});
+    if(now-start<2200)requestAnimationFrame(f);else x.clearRect(0,0,innerWidth,innerHeight);
+  })(start);
+}
+
+/* ---------- Speech synthesis ---------- */
+var S=load('sparks-settings',{accent:'en-GB',voice:''});
+// Running text is read at a natural pace; single words and glosor are read slower.
+var RATE_TEXT=0.9,RATE_WORD=0.6;
+var hasTTS='speechSynthesis' in window, voices=[];
+function nl(l){return String(l).replace('_','-').toLowerCase()}
+function loadVoices(){
+  if(!hasTTS)return;
+  voices=speechSynthesis.getVoices().filter(function(v){return /^en([-_]|$)/i.test(v.lang)});
+  renderVoiceSelect();
+  if(voices.length)$('#no-voice').hidden=true;
+}
+function scoreVoice(v){return(/natural|neural|premium|enhanced/i.test(v.name)?4:0)+(/google|siri|samantha|daniel|libby|sonia|ryan|aria|jenny|serena|kate|arthur|martha/i.test(v.name)?2:0)+(v.localService?0:1)}
+function accentVoices(){var a=nl(S.accent);var c=voices.filter(function(v){return nl(v.lang)===a});return c.length?c:voices}
+function currentVoice(){
+  var pool=accentVoices();
+  for(var i=0;i<pool.length;i++)if(pool[i].name===S.voice)return pool[i];
+  return pool.slice().sort(function(a,b){return scoreVoice(b)-scoreVoice(a)})[0]||null;
+}
+function renderVoiceSelect(){
+  var sel=$('#voice-select'),pool=accentVoices(),cur=currentVoice();
+  sel.textContent='';sel.hidden=pool.length<2;
+  pool.forEach(function(v){var o=document.createElement('option');o.value=v.name;o.textContent=v.name.replace(/^Microsoft\s+/,'').replace(/\s+Online.*$/,'')+' ('+v.lang+')';if(cur&&v.name===cur.name)o.selected=true;sel.appendChild(o)});
+}
+function speak(text,opts){
+  opts=opts||{};
+  return new Promise(function(res){
+    if(!hasTTS||!text){res();return}
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text),v=currentVoice();
+    if(v)u.voice=v;u.lang=v?v.lang:S.accent;u.rate=opts.rate||RATE_TEXT;u.pitch=opts.pitch||1;
+    var done=false,to;
+    function fin(){if(!done){done=true;clearTimeout(to);res()}}
+    u.onend=fin;u.onerror=fin;
+    if(opts.onboundary)u.onboundary=function(e){if(!e.name||e.name==='word')opts.onboundary(e.charIndex)};
+    to=setTimeout(fin,2000+text.length*120/u.rate);
+    speechSynthesis.speak(u);
+  });
+}
+function sayWord(text){return speak(text,{rate:RATE_WORD})}
+
+/* ---------- Story ---------- */
+var SENTS=[];
+function splitSentences(p){
+  var parts=p.match(/[^.!?]+(?:[.!?]+["”’']*\s*|$)/g)||[p],out=[];
+  parts.forEach(function(s){if(!s)return;if(out.length&&/^\s*[a-z]/.test(s))out[out.length-1]+=s;else out.push(s)});
+  return out;
+}
+function buildSentence(st,parent,pitch){
+  var si=SENTS.length,se=document.createElement('span');se.className='sent';
+  var toks=[],re=wordRe(),m;while((m=re.exec(st)))toks.push({t:m[0],off:m.index});
+  var mark=toks.map(function(){return -1}),grp=[],sorted=GL.slice().sort(function(a,b){return b.toks.length-a.toks.length});
+  for(var i=0;i<toks.length;i++){
+    if(mark[i]>=0)continue;
+    for(var q=0;q<sorted.length;q++){
+      var g=sorted[q],n=g.toks.length;if(!n||i+n>toks.length)continue;
+      var ok=true;
+      for(var k=0;k<n;k++){if(!formsMatch(norm(toks[i+k].t),g.toks[k])){ok=false;break}}
+      if(ok){for(k=0;k<n;k++){mark[i+k]=g.i;grp[i+k]=si+'-'+i}break}
+    }
+  }
+  var pos=0,wl=[];
+  toks.forEach(function(tk,j){
+    if(tk.off>pos)se.appendChild(document.createTextNode(st.slice(pos,tk.off)));
+    var b=document.createElement('button');b.type='button';b.className='w'+(mark[j]>=0?' g':'');b.textContent=tk.t;b.dataset.si=si;
+    if(mark[j]>=0){b.dataset.gi=mark[j];b.dataset.gp=grp[j]}
+    se.appendChild(b);wl.push({off:tk.off,el:b});pos=tk.off+tk.t.length;
+  });
+  if(pos<st.length)se.appendChild(document.createTextNode(st.slice(pos)));
+  SENTS.push({text:st,el:se,words:wl,pitch:pitch||1});parent.appendChild(se);
+}
+// Dialogue lines ("Lynne: Hello!") get a speaker label that is shown but not read aloud,
+// and each speaker gets their own voice pitch.
+var PITCH=[1.2,0.8,1.05,0.92];
+function renderStory(){
+  var story=$('#story');story.textContent='';SENTS=[];
+  var h=document.createElement('h2');buildSentence(week.title||'',h);story.appendChild(h);
+  var who=[];
+  String(week.text||'').split(/\n+/).map(function(p){return p.trim()}).filter(Boolean).forEach(function(p){
+    var m=p.match(/^([A-ZÅÄÖ][A-Za-zÅÄÖåäö]{1,19}):\s+(.+)$/),pe;
+    if(m){
+      var name=m[1].charAt(0)+m[1].slice(1).toLowerCase(),idx=who.indexOf(name);if(idx<0){who.push(name);idx=who.length-1}
+      pe=document.createElement('div');pe.className='line who-'+(idx%4);
+      var lab=document.createElement('span');lab.className='who';lab.textContent=name;pe.appendChild(lab);
+      var tx=document.createElement('span');tx.className='said';
+      splitSentences(m[2]).forEach(function(s){buildSentence(s,tx,PITCH[idx%4])});
+      pe.appendChild(tx);
+    }else{
+      pe=document.createElement('p');splitSentences(p).forEach(function(s){buildSentence(s,pe)});
+    }
+    story.appendChild(pe);
+  });
+}
+
+/* ---------- Word bar ---------- */
+var CUR=null,sampler=null,meanCache={};
+function selectWord(b){
+  $$('.w.sel').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');
+  var g=b.dataset.gi!=null?glosa(b.dataset.gi):null;
+  var say=b.textContent;
+  if(g&&g.toks.length>1)say=$$('#story .w[data-gp="'+b.dataset.gp+'"]').map(function(x){return x.textContent}).join(' ');
+  CUR={word:b.textContent,si:+b.dataset.si,g:g,say:say};
+  $('#wb-word').textContent=CUR.say;
+  var meta=$('#wb-meta');meta.textContent='';
+  if(g){meta.innerHTML='Veckans glosa: <b lang="en"></b> = <b></b>';meta.children[0].textContent=g.en;meta.children[1].textContent=g.sv||'?'}
+  else meta.textContent='Lyssna och säg det högt.';
+  $('#wb-mean').hidden=!sampler||!!g;
+  $('#wordbar').hidden=false;
+  sayWord(CUR.say);
+  var w=W(),k=norm(b.textContent);
+  if(w.seen.indexOf(k)<0){w.seen.push(k);if(w.seen.length%10===0)addStars(1,'Utforskare! '+w.seen.length+' ord');else store('sparks-progress',P)}
+}
+function hideWordbar(){$('#wordbar').hidden=true;$$('.w.sel').forEach(function(x){x.classList.remove('sel')})}
+
+/* ---------- Read aloud & echo ---------- */
+var runId=0,turnResolve=null;
+function setReading(on){$('#btn-stop').hidden=!on;$('#btn-readall').disabled=on;$('#btn-echo').disabled=on}
+function clearHL(){$$('.sent.cur').forEach(function(x){x.classList.remove('cur')});$$('.w.now').forEach(function(x){x.classList.remove('now')})}
+function stopReading(){
+  runId++;if(hasTTS)speechSynthesis.cancel();clearHL();setReading(false);$('#turn').hidden=true;
+  if(turnResolve){var r=turnResolve;turnResolve=null;r('stop')}
+}
+function hlWord(si,ci){var s=SENTS[si],best=null;s.words.forEach(function(w){if(w.off<=ci)best=w});$$('.w.now').forEach(function(x){x.classList.remove('now')});if(best)best.el.classList.add('now')}
+function yourTurn(ms){
+  return new Promise(function(res){
+    var t=$('#turn'),bar=$('#turn-bar');t.hidden=false;
+    bar.style.transition='none';bar.style.width='100%';void bar.offsetWidth;
+    bar.style.transition='width '+ms+'ms linear';bar.style.width='0%';
+    var to=setTimeout(function(){fin('next')},ms);
+    function fin(v){clearTimeout(to);if(turnResolve===fin)turnResolve=null;t.hidden=true;res(v)}
+    turnResolve=fin;
+  });
+}
+async function readAll(mode){
+  stopReading();hideWordbar();var my=++runId;setReading(true);
+  var i=0;
+  while(i<SENTS.length){
+    if(my!==runId)return;
+    var s=SENTS[i];clearHL();s.el.classList.add('cur');
+    s.el.scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
+    var t0=performance.now();
+    await speak(s.text,{pitch:s.pitch,onboundary:function(ci){hlWord(i,ci)}});
+    if(my!==runId)return;
+    $$('.w.now').forEach(function(x){x.classList.remove('now')});
+    if(mode==='echo'){
+      var r=await yourTurn(Math.min(14000,(performance.now()-t0)*1.4+1500));
+      if(my!==runId||r==='stop')return;
+      if(r==='again')continue;
+      addStars(1,'Bra härmat!');
+    }else await sleep(300);
+    i++;
+  }
+  if(my!==runId)return;
+  setReading(false);clearHL();
+  if(mode==='read')addStars(2,'Du lyssnade på hela texten!');
+  else{toast('Hela texten härmad! Superbra!');celebrate(true)}
+}
+
+/* ---------- Word cards ---------- */
+function renderCards(){
+  var c=$('#cards');c.textContent='';
+  if(!GL.length){c.innerHTML='<p class="hint">Inga glosor inlagda den här veckan.</p>';return}
+  GL.forEach(function(g){
+    var card=document.createElement('div');card.className='card';card.dataset.gi=g.i;
+    card.innerHTML='<button type="button" class="card-main" data-gi="'+g.i+'"><span class="en" lang="en"></span><span class="sv"></span></button>';
+    card.querySelector('.en').textContent=g.en;card.querySelector('.sv').textContent=g.sv||'–';
+    c.appendChild(card);
+  });
+}
+var cardRun=0;
+async function playAllWords(){
+  var my=++cardRun;stopReading();
+  var cards=$$('.card');
+  for(var i=0;i<GL.length;i++){
+    if(my!==cardRun)return;
+    cards.forEach(function(c){c.classList.remove('cur')});cards[i].classList.add('cur');
+    cards[i].scrollIntoView({block:'nearest',behavior:reduced?'auto':'smooth'});
+    await sayWord(GL[i].en);await sleep(1400);
+  }
+  cards.forEach(function(c){c.classList.remove('cur')});
+  if(my===cardRun)addStars(1,'Alla glosor genomlyssnade!');
+}
+
+/* ---------- Games ---------- */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var srOK=!!SR;
+var G=null;
+var ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 4V5L7 9zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>';
+var ICON_MIC='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z"/></svg>';
+function startGame(type){
+  if(GL.length<2){toast('Lägg in minst två glosor först.');return}
+  stopReading();cardRun++;
+  G={type:type,qs:shuffle(GL.slice()).slice(0,Math.min(8,GL.length)),i:0,first:0,tried:false,attempts:0};
+  $('#game-menu').hidden=true;$('#game').hidden=false;renderQ();
+}
+function quitGame(){G=null;$('#game').hidden=true;$('#game-menu').hidden=false}
+function head(){
+  var d='';for(var i=0;i<G.qs.length;i++)d+='<i class="'+(i<G.i?'done':i===G.i?'cur':'')+'"></i>';
+  return '<div class="g-head"><span>Fråga '+(G.i+1)+' av '+G.qs.length+'</span><span class="dots">'+d+'</span><button type="button" class="linkish" data-act="quit">Avsluta</button></div>';
+}
+function renderQ(){
+  var g=G.qs[G.i],el=$('#game');G.tried=false;G.attempts=0;G.hint=0;
+  var html=head();
+  if(G.type==='listen'){
+    html+='<p class="q-label">Lyssna och välj rätt ord</p><div class="q-play"><button type="button" class="btn primary" data-act="play">'+ICON_PLAY+'Lyssna</button></div>';
+  }else if(G.type==='translate'){
+    html+='<p class="q-label">Vad heter det på engelska?</p><div class="q-word">'+esc(g.sv||'?')+'</div><p class="q-sub">Tryck på ett svar så hör du hur det låter.</p>';
+  }else if(G.type==='spell-en'){
+    html+='<p class="q-label">Lyssna och skriv ordet på engelska</p><p class="q-sub">'+esc(g.sv)+'</p><div class="q-play"><button type="button" class="btn primary" data-act="play">'+ICON_PLAY+'Lyssna</button><button type="button" class="btn" data-act="hint">Ledtråd</button></div>'+spellForm('en');
+  }else if(G.type==='spell-sv'){
+    html+='<p class="q-label">Vad betyder ordet? Skriv det på svenska.</p><div class="q-word" lang="en">'+esc(g.en)+'</div><div class="q-play"><button type="button" class="btn primary" data-act="play">'+ICON_PLAY+'Lyssna</button><button type="button" class="btn" data-act="hint">Ledtråd</button></div>'+spellForm('sv');
+  }else{
+    html+='<p class="q-label">Lyssna, härma och säg ordet</p><div class="q-word" lang="en">'+esc(g.en)+'</div><p class="q-sub">'+esc(g.sv)+'</p><div class="q-play"><button type="button" class="btn primary" data-act="play">'+ICON_PLAY+'Lyssna</button></div>';
+    if(srOK)html+='<p class="q-label">Tryck på mikrofonen och säg ordet:</p><button type="button" class="mic" data-act="mic" aria-label="Säg ordet">'+ICON_MIC+'</button>';
+    else html+='<p class="q-label">Säg ordet högt tre gånger. Tryck sen på knappen!</p><button type="button" class="btn spark" data-act="said">Klart, jag sa det!</button>';
+  }
+  if(G.type==='listen'||G.type==='translate'){
+    html+='<div class="options">';
+    opts(g).forEach(function(o){html+='<button type="button" class="opt" lang="en" data-gi="'+o.i+'">'+esc(o.en)+'</button>'});
+    html+='</div>';
+  }
+  html+='<p class="fb" id="fb" aria-live="polite"></p><div class="g-next" id="g-next"></div>';
+  el.innerHTML=html;
+  if(G.type!=='translate')sayWord(g.en);
+  var inp=$('#q-input');if(inp)inp.focus({preventScroll:true});
+}
+function spellForm(lang){
+  return '<form class="spell" id="spell-form" autocomplete="off"><input id="q-input" type="text" lang="'+lang+'" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" aria-label="Skriv svaret"><button type="submit" class="btn primary">Kolla</button></form><p class="hint-letters" id="q-hint" aria-live="polite"></p>';
+}
+function nrm(s){return String(s).toLowerCase().replace(/’/g,"'").replace(/[^a-zåäöéü' ]/g,' ').replace(/\s+/g,' ').trim()}
+function answersFor(g){
+  if(G.type==='spell-en'){var a=nrm(g.en),t=a.replace(/^(to|a|an|the) /,'');return t!==a?[a,t]:[a]}
+  return g.sv.replace(/\([^)]*\)/g,'').split(/[,;\/]| eller /).map(nrm).filter(Boolean);
+}
+function lev(a,b){
+  var d=[],i,j;for(i=0;i<=a.length;i++)d[i]=[i];for(j=1;j<=b.length;j++)d[0][j]=j;
+  for(i=1;i<=a.length;i++)for(j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length];
+}
+function diffHtml(typed,right){var h='';for(var i=0;i<right.length;i++)h+=typed[i]===right[i]?esc(right[i]):'<mark>'+esc(right[i])+'</mark>';return h}
+function showHint(){
+  var g=G.qs[G.i],w=G.type==='spell-en'?g.en:(answersFor(g)[0]||'');
+  G.hint=Math.min(w.length,G.hint+1);
+  $('#q-hint').textContent=w.split('').map(function(c,i){return i<G.hint||c===' '?c:'_'}).join(' ');
+  var inp=$('#q-input');if(inp)inp.focus({preventScroll:true});
+}
+function checkSpell(){
+  var g=G.qs[G.i],inp=$('#q-input'),fb=$('#fb');if(!inp||inp.disabled)return;
+  var v=nrm(inp.value);if(!v)return;
+  var ans=answersFor(g),hit=ans.indexOf(v)>=0;
+  // Swedish answers allow one small typo; English spelling must be exact.
+  if(!hit&&G.type==='spell-sv')hit=ans.some(function(a){return a.length>=5&&lev(a,v)<=1});
+  if(hit){
+    inp.disabled=true;inp.classList.add('right');sayWord(g.en);
+    correct(G.type==='spell-en'?'Rätt stavat! '+g.en+' = '+g.sv:'Rätt! '+g.en+' = '+g.sv);
+    return;
+  }
+  G.tried=true;G.attempts++;beep(false);fb.className='fb no';
+  var near=ans.some(function(a){return lev(a,v)<=2});
+  if(G.attempts>=2){
+    var right=G.type==='spell-en'?nrm(g.en):ans[0];
+    inp.disabled=true;
+    fb.innerHTML='Så här stavas det: <span class="diff" lang="'+(G.type==='spell-en'?'en':'sv')+'">'+diffHtml(v,right)+'</span>';
+    if(G.type==='spell-en')sayWord(g.en);
+    showNext();
+  }else{
+    fb.textContent=near?'Nästan! Kolla stavningen och försök igen.':'Inte riktigt. Försök en gång till!';
+    if(G.type==='spell-en')sayWord(g.en);
+    inp.select();
+  }
+}
+function opts(g){return shuffle([g].concat(shuffle(GL.filter(function(x){return x.i!==g.i})).slice(0,3)))}
+function showNext(){
+  var last=G.i>=G.qs.length-1;
+  $('#g-next').innerHTML='<button type="button" class="btn primary" data-act="next">'+(last?'Se resultat':'Nästa')+'</button>';
+  $('#g-next button').focus();
+}
+function correct(fbText){
+  var g=G.qs[G.i];beep(true);
+  if(!G.tried){G.first++;addStars(1,'Rätt!')}
+  var fb=$('#fb');fb.className='fb ok';fb.textContent=fbText||(g.en+' = '+g.sv);
+  showNext();
+}
+function answer(btn){
+  var g=G.qs[G.i],pick=glosa(btn.dataset.gi);
+  if(pick.i===g.i){
+    btn.classList.add('right');$$('#game .opt').forEach(function(b){b.disabled=true});
+    sayWord(g.en);correct();
+  }else{
+    btn.classList.add('wrong');btn.disabled=true;G.tried=true;beep(false);
+    var fb=$('#fb');fb.className='fb no';
+    if(G.type==='translate'){fb.textContent=pick.en+' betyder '+(pick.sv||'något annat')+'. Försök igen!';sayWord(pick.en)}
+    else{fb.textContent='Inte riktigt. Lyssna en gång till!';sayWord(g.en)}
+  }
+}
+function similar(a,b){
+  if(a===b)return true;if(Math.abs(a.length-b.length)>1||b.length<5)return false;
+  var d=[],i,j;for(i=0;i<=a.length;i++){d[i]=[i]}for(j=1;j<=b.length;j++)d[0][j]=j;
+  for(i=1;i<=a.length;i++)for(j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length]<=1;
+}
+function heardIt(alts,g){
+  var target=(g.en.match(wordRe())||[]).map(norm);
+  return alts.some(function(t){
+    var heard=(t.match(wordRe())||[]).map(norm);
+    for(var i=0;i+target.length<=heard.length;i++){
+      var ok=true;for(var k=0;k<target.length;k++)if(!similar(heard[i+k],target[k])&&!formsMatch(heard[i+k],target[k])){ok=false;break}
+      if(ok)return true;
+    }
+    return false;
+  });
+}
+function listenMic(btn){
+  var g=G.qs[G.i],fb=$('#fb');
+  if(hasTTS)speechSynthesis.cancel();
+  var r;try{r=new SR()}catch(e){srFallback();return}
+  r.lang=S.accent;r.interimResults=false;r.maxAlternatives=5;
+  var got=false;btn.classList.add('on');fb.className='fb';fb.textContent='Jag lyssnar…';
+  r.onresult=function(e){
+    got=true;var alts=[];for(var i=0;i<e.results[0].length;i++)alts.push(e.results[0][i].transcript);
+    btn.classList.remove('on');
+    if(heardIt(alts,g)){correct('Jag hörde “'+alts[0]+'”. Snyggt uttalat!')}
+    else{
+      G.tried=true;G.attempts++;beep(false);fb.className='fb no';
+      fb.textContent='Jag hörde “'+alts[0]+'”. Lyssna igen och försök en gång till!';
+      if(G.attempts>=2)$('#g-next').innerHTML='<button type="button" class="btn" data-act="next">Hoppa till nästa</button>';
+    }
+  };
+  r.onerror=function(e){
+    btn.classList.remove('on');
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){srFallback();return}
+    fb.className='fb';fb.textContent='Jag hörde inget. Tryck och prova igen!';
+  };
+  r.onend=function(){btn.classList.remove('on');if(!got&&fb.textContent==='Jag lyssnar…')fb.textContent='Jag hörde inget. Tryck och prova igen!'};
+  try{r.start()}catch(e){srFallback()}
+}
+function srFallback(){srOK=false;toast('Mikrofonen går inte att använda här. Säg ordet högt i stället!');renderQ()}
+function endGame(){
+  var el=$('#game'),n=G.qs.length;
+  el.innerHTML='<div class="summary"><p class="q-label">Rundan klar!</p><div class="q-word">'+G.first+' av '+n+'</div><p class="q-sub">rätt på första försöket</p><div class="g-next" style="justify-content:center"><button type="button" class="btn primary" data-act="again">Spela igen</button><button type="button" class="btn" data-act="quit">Välj annat spel</button></div></div>';
+  addStars(3,'Runda klar!');celebrate(G.first===n);
+}
+
+/* ---------- Editor (save week) ---------- */
+function openEditor(){
+  stopReading();
+  $('#ed-title').value=week.example?'':week.title;
+  $('#ed-text').value=week.example?'':week.text;
+  $('#ed-words').value=week.example?'':(week.words||[]).map(function(w){return w.en+' = '+w.sv}).join('\n');
+  $('#ed-status').textContent='Tips: fotografera sidan i boken och be Claude skriva av texten och glosorna åt dig.';
+  $('#editor').hidden=false;$('#ed-title').focus();
+}
+function parseWords(s){
+  return s.split('\n').map(function(l){return l.trim()}).filter(Boolean).map(function(l){
+    var m=l.match(/^(.+?)\s*(?:=|\t|\s[-–—]\s|:)\s*(.*)$/);
+    return m?{en:m[1].trim(),sv:m[2].trim()}:{en:l,sv:''};
+  });
+}
+function buildDoc(w){
+  var json=JSON.stringify(w).replace(/</g,'\\u003c');
+  return '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>'+SHELL.reset+'</style></head><body>'+
+    '<title>Sparks Läsläxa</title>\n'+SHELL.fonts+'\n'+SHELL.style+'\n\n'+SHELL.app+'\n\n<script type="application/json" id="week-data">'+json+'<\/script>\n\n'+SHELL.script+'\n</body></html>';
+}
+async function saveWeek(e){
+  e.preventDefault();
+  var title=$('#ed-title').value.trim(),text=$('#ed-text').value.trim();
+  if(!text){$('#ed-status').textContent='Skriv in eller klistra in texten först.';return}
+  var nw={title:title||'Veckans text',example:false,savedAt:Date.now(),text:text,words:parseWords($('#ed-words').value)};
+  $('#ed-save').disabled=true;$('#ed-status').textContent='Sparar…';
+  store('sparks-week',nw);week=nw;rebuild();
+  var art=null;try{art=window.claude&&window.claude.use?await window.claude.use('artifact'):null}catch(err){art=null}
+  var msg='Sparat på den här enheten.';
+  if(art){
+    try{await art.publish(buildDoc(nw));msg='Sparat! Texten syns nu på alla enheter som öppnar sidan.'}
+    catch(err){msg=(err&&err.code==='conflict')?'Sidan ändrades någon annanstans. Den laddas om nu.':'Sparat på den här enheten.'}
+  }
+  $('#ed-save').disabled=false;$('#editor').hidden=true;toast(msg);
+}
+
+/* ---------- Wiring ---------- */
+function rebuild(){
+  prepGlosor();$('#week-title').textContent=week.title||'Veckans text';
+  $('#example-note').hidden=!week.example;
+  renderStory();renderCards();quitGame();hideWordbar();updateMeter();
+}
+function setTab(t){
+  $$('.tab').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===t))});
+  ['read','words','play'].forEach(function(x){$('#tab-'+x).hidden=x!==t});
+  if(t!=='read'){stopReading();hideWordbar()}
+  if(t!=='words')cardRun++;
+  store('sparks-tab',t);
+}
+function syncSettings(){
+  $$('[data-accent]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.accent===S.accent))});
+  renderVoiceSelect();store('sparks-settings',S);
+}
+
+$$('.tab').forEach(function(b){b.addEventListener('click',function(){setTab(b.dataset.tab)})});
+$$('[data-accent]').forEach(function(b){b.addEventListener('click',function(){S.accent=b.dataset.accent;S.voice='';syncSettings();speak('Hello! This is how I sound.')})});
+$('#voice-select').addEventListener('change',function(e){S.voice=e.target.value;syncSettings();speak('Hello! This is how I sound.')});
+
+$('#story').addEventListener('click',function(e){var b=e.target.closest('button.w');if(!b)return;stopReading();selectWord(b)});
+$('#btn-readall').addEventListener('click',function(){readAll('read')});
+$('#btn-echo').addEventListener('click',function(){readAll('echo')});
+$('#btn-stop').addEventListener('click',stopReading);
+$('#btn-toggle-g').addEventListener('click',function(e){var on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));$('#story').classList.toggle('hide-g',!on)});
+$('#turn-again').addEventListener('click',function(){if(turnResolve)turnResolve('again')});
+$('#turn-next').addEventListener('click',function(){if(turnResolve)turnResolve('next')});
+$('#turn-stop').addEventListener('click',stopReading);
+
+$('#wb-again').addEventListener('click',function(){if(CUR)sayWord(CUR.say)});
+$('#wb-sent').addEventListener('click',function(){if(CUR)speak(SENTS[CUR.si].text,{pitch:SENTS[CUR.si].pitch})});
+$('#wb-close').addEventListener('click',hideWordbar);
+$('#wb-mean').addEventListener('click',async function(){
+  if(!CUR||!sampler)return;
+  var key=CUR.word+'|'+CUR.si,meta=$('#wb-meta');
+  if(meanCache[key]){meta.textContent=meanCache[key];return}
+  meta.textContent='Funderar…';
+  try{
+    var r=await sampler('Du hjälper ett svenskt barn i årskurs 4 som läser engelska. Ordet "'+CUR.word+'" står i meningen: "'+SENTS[CUR.si].text.trim()+'". Svara på svenska med högst 12 ord: vad betyder ordet här? Skriv bara översättningen och kanske en kort förklaring.',{modelTier:'quick'});
+    meanCache[key]=(r&&r.text||'').trim()||'Jag vet inte riktigt.';meta.textContent=meanCache[key];
+  }catch(err){
+    if(err&&err.code==='not_granted'){sampler=null;$('#wb-mean').hidden=true}
+    meta.textContent='Det gick inte att ta reda på just nu.';
+  }
+});
+
+$('#cards').addEventListener('click',function(e){
+  var m=e.target.closest('.card-main');if(!m)return;cardRun++;
+  var card=m.parentNode;if($('#cards').classList.contains('quiz'))card.classList.add('revealed');
+  sayWord(glosa(m.dataset.gi).en);
+});
+$('#btn-allwords').addEventListener('click',playAllWords);
+$('#btn-quiz').addEventListener('click',function(e){var on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));var c=$('#cards');c.classList.toggle('quiz',on);$$('.card.revealed').forEach(function(x){x.classList.remove('revealed')})});
+
+$('#game-menu').addEventListener('click',function(e){var b=e.target.closest('[data-game]');if(b)startGame(b.dataset.game)});
+$('#game').addEventListener('click',function(e){
+  var o=e.target.closest('.opt');if(o&&!o.disabled){answer(o);return}
+  var a=e.target.closest('[data-act]');if(!a||!G&&a.dataset.act!=='quit')return;
+  var act=a.dataset.act,g=G&&G.qs[G.i];
+  if(act==='quit')quitGame();
+  else if(act==='play')sayWord(g.en);
+  else if(act==='mic')listenMic(a);
+  else if(act==='hint')showHint();
+  else if(act==='said'){a.disabled=true;correct('Bra! '+g.en+' = '+g.sv)}
+  else if(act==='next'){G.i++;if(G.i>=G.qs.length)endGame();else renderQ()}
+  else if(act==='again')startGame(G.type);
+});
+
+$('#game').addEventListener('submit',function(e){e.preventDefault();checkSpell()});
+
+$('#btn-edit').addEventListener('click',openEditor);
+$('#btn-edit-2').addEventListener('click',openEditor);
+$('#ed-cancel').addEventListener('click',function(){$('#editor').hidden=true});
+$('#ed-form').addEventListener('submit',saveWeek);
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(!$('#editor').hidden)$('#editor').hidden=true;else hideWordbar()}});
+
+/* ---------- Boot ---------- */
+if(hasTTS){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+setTimeout(function(){if(!hasTTS||!voices.length)$('#no-voice').hidden=false},2500);
+syncSettings();rebuild();
+var tab=load('sparks-tab','read');setTab(['read','words','play'].indexOf(tab)>=0?tab:'read');
+if(window.claude&&window.claude.use){window.claude.use('sample').then(function(s){sampler=s||null}).catch(function(){})}
+})();
+</script>
